@@ -8,7 +8,7 @@ use winit::dpi::{PhysicalPosition, PhysicalSize};
 
 const RENDER_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
-pub struct Renderer {
+pub struct Renderer<'a> {
   pub window: winit::window::Window,
   surface: wgpu::Surface,
   pub size: PhysicalSize<u32>,
@@ -19,16 +19,16 @@ pub struct Renderer {
   local_spawner: futures::executor::LocalSpawner,
   local_pool: futures::executor::LocalPool,
   glyph_brush: wgpu_glyph::GlyphBrush<()>,
-  pub code_view: code_view::CodeView,
+  pub code_view: code_view::CodeView<'a>,
   rectangle_render_pipeline: wgpu::RenderPipeline,
 }
 
-impl Renderer {
+impl<'a> Renderer<'a> {
   pub async fn new(
     event_loop: &winit::event_loop::EventLoop<()>,
     font: wgpu_glyph::ab_glyph::FontArc,
     text: String,
-  ) -> Result<Self, anyhow::Error> {
+  ) -> Result<Renderer<'a>, anyhow::Error> {
     let window = winit::window::WindowBuilder::new()
       .with_title(env!("CARGO_CRATE_NAME"))
       .build(event_loop)

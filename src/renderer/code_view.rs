@@ -1,11 +1,13 @@
 use crate::renderer::rectangle::Rectangle;
 use std::collections::HashMap;
+use wgpu_glyph::ab_glyph::PxScale;
 use wgpu_glyph::{HorizontalAlign, Layout, Region, Section, Text};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::VirtualKeyCode;
 
-pub struct CodeView {
+pub struct CodeView<'a> {
   text: Vec<String>,
+  glyph_text: Vec<Text<'a>>,
   scroll_offset: winit::dpi::PhysicalPosition<f64>,
   font_height: f32,
   font_width_map: HashMap<char, f32>,
@@ -17,9 +19,26 @@ pub struct CodeView {
   line_numbers_width: f32,
 }
 
-impl CodeView {
+impl<'a> CodeView<'a> {
   pub fn get_rects(&self) -> Vec<&Rectangle> {
     vec![&self.cursor, &self.rect]
+  }
+
+  fn generate_glyph_text<S: Into<PxScale>>(
+    s: &'a Vec<String>,
+    scale: S,
+  ) -> Vec<Text<'a>> {
+    s.iter()
+      .map(|s| {
+        Text::new(s)
+          .with_color([0.9, 0.9, 0.9, 1.0])
+          .with_scale(scale)
+      })
+      .collect()
+  }
+
+  fn regenerate_glyph_text(&mut self) {
+    self.glyph_text = Self::generate_glyph_text(&self.text, self.font_height);
   }
 
   pub fn new(
@@ -81,6 +100,7 @@ impl CodeView {
     });
 
     Self {
+      glyph_text: Self::generate_glyph_text(&split_text, font_height),
       text: split_text,
       scroll_offset: winit::dpi::PhysicalPosition { x: 0.0, y: 0.0 },
       font_height,
@@ -215,7 +235,7 @@ impl CodeView {
   }
 }
 
-impl super::RenderElement for CodeView {
+impl<'a> super::RenderElement for CodeView<'a> {
   fn resize(&mut self, screen_size: PhysicalSize<u32>) {
     self.rect.resize(
       screen_size,
@@ -326,9 +346,15 @@ impl super::RenderElement for CodeView {
         codeview_offset + self.scroll_offset.x as f32,
         self.scroll_offset.y as f32,
       ),
-      text: vec![Text::new(&self.text.join("\n"))
-        .with_color([0.9, 0.9, 0.9, 1.0])
-        .with_scale(self.font_height)],
+      text: self
+        .glyph_text
+        .iter()
+        .flat_map(|s| {
+          std::iter::once(*s).chain(std::iter::once(
+            Text::new("\n").with_scale(self.font_height),
+          ))
+        })
+        .collect(),
       ..Section::default()
     });
 
